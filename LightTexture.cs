@@ -52,7 +52,8 @@ namespace LFE
             instruction.val += "2) paint in greyscale, while will be bright, black will be dark.\n";
             instruction.val += "3) use an alpha from greyscale tool in your paint program.\n";
             instruction.val += "4) save it as a square PNG making sure the width and height are powers of two.\n\n";
-            instruction.val += "Tip: make sure the edges are black or else your spotlight will look square";
+            instruction.val += "Tip: make sure the edges are black or else your spotlight will look square\n\n";
+            instruction.val += "Tip: add your own PNG files in 'Custom/Atom/InvisibleLight/Textures' (even in your own VAR) for easy use";
             CreateTextField(instruction, rightSide: true).height = 1200;
 
             // trigger the handler for the wrap mode and path in case it was saved in a scene

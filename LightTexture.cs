@@ -17,13 +17,15 @@ namespace LFE
         private Light _light;
         private static List<string> CookieWrapModes = new List<string> { "Clamp", "Mirror", "MirrorOnce", "Repeat" };
 
-        public override void Init() {
+        public override void Init()
+        {
             _light = containingAtom.GetComponentInChildren<Light>();
-            if(_light == null) { throw new Exception("This must be placed on an Atom with a light"); }
+            if (_light == null) { throw new Exception("This must be placed on an Atom with a light"); }
 
             CookieFilePath = new JSONStorableString("Light Texture", String.Empty, (path) => SetTexture(path));
             CookieWrapMode = new JSONStorableStringChooser("Texture Wrap Mode", CookieWrapModes, CookieWrapModes.First(), "Texture Wrap Mode", (mode) => {
-                if(_light.cookie != null) {
+                if (_light.cookie != null)
+                {
                     _light.cookie.wrapMode = ParseTextureWrapMode(mode);
                 }
             });
@@ -58,23 +60,27 @@ namespace LFE
             CookieFilePath.val = CookieFilePath.val;
         }
 
-        void OnDestroy() {
+        void OnDestroy()
+        {
             ClearCookie(_light);
         }
 
         // --------------------------------------------------------------------------------
 
-        void SetTexture(string path) {
+        void SetTexture(string path)
+        {
             ClearCookie(_light);
 
-            if(string.IsNullOrEmpty(path)) {
+            if (string.IsNullOrEmpty(path))
+            {
                 return;
             }
 
             byte[] file = FileManagerSecure.ReadAllBytes(path);
             Texture cookie = null;
 
-            switch(_light.type) {
+            switch (_light.type)
+            {
                 case LightType.Area:
                 case LightType.Directional:
                 case LightType.Spot:
@@ -89,20 +95,24 @@ namespace LFE
                     break;
             }
 
-            if(cookie != null) {
+            if (cookie != null)
+            {
                 _light.cookie = cookie;
                 _light.cookie.wrapMode = ParseTextureWrapMode(CookieWrapMode.val);
 
                 CookieFilePath.val = path;
             }
-            else {
+            else
+            {
                 SuperController.LogError($"not able to load {path} (this won't work on point light yet)");
                 CookieFilePath.val = "";
             }
         }
 
-        private TextureWrapMode ParseTextureWrapMode(string value) {
-            switch(value) {
+        private TextureWrapMode ParseTextureWrapMode(string value)
+        {
+            switch (value)
+            {
                 case "Clamp":
                     return TextureWrapMode.Clamp;
                 case "Mirror":
@@ -116,28 +126,32 @@ namespace LFE
             }
         }
 
-        private void ShowTexturePicker() {
-            SuperController.singleton.fileBrowserUI.defaultPath = $"{GetPluginPath()}Textures";
-            SuperController.singleton.fileBrowserUI.SetTitle("Select A Light Cookie Texture");
-            SuperController.singleton.fileBrowserUI.showFiles = true;
-            SuperController.singleton.fileBrowserUI.showDirs = true;
-            SuperController.singleton.fileBrowserUI.SetTextEntry(false);
-            SuperController.singleton.fileBrowserUI.hideExtension = false;
-            SuperController.singleton.fileBrowserUI.showInstallFolderInDirectoryList = true;
-            SuperController.singleton.fileBrowserUI.fileFormat = "png";
-            SuperController.singleton.fileBrowserUI.Show((string path) => {
-                SetTexture(path);
-            });
+        private void ShowTexturePicker()
+        {
+            var defaultPaths = new List<string> {
+                $"{GetPluginPath()}Textures", // local development
+                $"{GetPluginPath()}Custom/Atom/InvisibleLight/Textures", // in var package
+                $"Custom/Atom/InvisibleLight/Textures" // wtf
+            };
+
+            SuperController.singleton.GetMediaPathDialog(
+                (p) => SetTexture(p),
+                filter: "png",
+                suggestedFolder: defaultPaths.FirstOrDefault(p => FileManagerSecure.DirectoryExists(p)),
+            );
         }
 
-        private void ClearCookie(Light light) {
-            if(light.cookie != null) {
+        private void ClearCookie(Light light)
+        {
+            if (light.cookie != null)
+            {
                 Destroy(light.cookie);
                 light.cookie = null;
             }
         }
 
-        public string GetPluginPath() {
+        public string GetPluginPath()
+        {
             string id = name.Substring(0, name.IndexOf('_'));
             string filename = manager.GetJSON()["plugins"][id].Value;
             string path = filename.Substring(0, filename.LastIndexOfAny(new char[] { '/', '\\' }) + 1);

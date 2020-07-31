@@ -129,15 +129,24 @@ namespace LFE
         private void ShowTexturePicker()
         {
             var defaultPaths = new List<string> {
-                $"{GetPluginPath()}Textures", // local development
-                $"{GetPluginPath()}Custom/Atom/InvisibleLight/Textures", // in var package
-                $"Custom/Atom/InvisibleLight/Textures" // wtf
+                $"{GetPluginPath()}Textures",
+                $"{GetPluginPath()}Custom/Atom/InvisibleLight/Textures",
+                $"Custom/Atom/InvisibleLight/Textures"
             };
+
+            var shortcuts = FileManagerSecure.GetShortCutsForDirectory(
+                "Custom/Atom/InvisibleLight/Textures",
+                allowNavigationAboveRegularDirectories: true,
+                useFullPaths: true,
+                generateAllFlattenedShortcut: true,
+                includeRegularDirsInFlattenedShortcut: true
+            );
 
             SuperController.singleton.GetMediaPathDialog(
                 (p) => SetTexture(p),
                 filter: "png",
                 suggestedFolder: defaultPaths.FirstOrDefault(p => FileManagerSecure.DirectoryExists(p)),
+                shortCuts: shortcuts
             );
         }
 

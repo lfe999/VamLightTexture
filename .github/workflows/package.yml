@@ -21,7 +21,7 @@ jobs:
         mkdir -p publish/Custom/Scripts/LFE/LightTexture
         mkdir -p publish/Custom/Atom/InvisibleLight/Textures
         cp LightTexture.cs publish/Custom/Scripts/LFE/LightTexture/
-        cp Textures/*.png publish/Custom/Atom/InvisibleLight/Textures/
+        cp textures/*.png publish/Custom/Atom/InvisibleLight/Textures/
         cp vam/meta.json publish/
         sed -i 's/v0.0.0/${{ steps.get_version.outputs.VERSION }}/' publish/meta.json
         cd publish

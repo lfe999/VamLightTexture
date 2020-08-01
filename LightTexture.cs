@@ -22,13 +22,29 @@ namespace LFE
             _light = containingAtom.GetComponentInChildren<Light>();
             if (_light == null) { throw new Exception("This must be placed on an Atom with a light"); }
 
-            CookieFilePath = new JSONStorableString("Light Texture", String.Empty, (path) => SetTexture(path));
+            CookieFilePath = new JSONStorableString("Light Texture", String.Empty, (path) => {
+                try
+                {
+                    SetTexture(path);
+                }
+                catch (Exception e)
+                {
+                    SuperController.LogError(e.ToString());
+                }
+            });
             RegisterString(CookieFilePath);
 
             CookieWrapMode = new JSONStorableStringChooser("Texture Wrap Mode", CookieWrapModes, CookieWrapModes.First(), "Texture Wrap Mode", (mode) => {
-                if (_light.cookie != null)
+                try
                 {
-                    _light.cookie.wrapMode = ParseTextureWrapMode(mode);
+                    if (_light.cookie != null)
+                    {
+                        _light.cookie.wrapMode = ParseTextureWrapMode(mode);
+                    }
+                }
+                catch (Exception e)
+                {
+                    SuperController.LogError(e.ToString());
                 }
             });
             RegisterStringChooser(CookieWrapMode);
@@ -63,19 +79,20 @@ namespace LFE
 
         void OnDestroy()
         {
-            ClearCookie(_light);
+            try
+            {
+                ClearCookie(_light);
+            }
+            catch (Exception e)
+            {
+                SuperController.LogError(e.ToString());
+            }
         }
 
         // --------------------------------------------------------------------------------
 
         void SetTexture(string path)
         {
-            path = FileManagerSecure.NormalizePath(path);
-            // strip off SELF:/ so that native file actions will work
-            if(path.Contains("SELF:/")) {
-                path = path.Replace("SELF:/", String.Empty);
-            }
-
             ClearCookie(_light);
 
             if (string.IsNullOrEmpty(path))
@@ -83,10 +100,18 @@ namespace LFE
                 return;
             }
 
+            path = FileManagerSecure.NormalizePath(path);
+            // strip off SELF:/ so that native file actions will work
+            if (path.Contains("SELF:/"))
+            {
+                path = path.Replace("SELF:/", String.Empty);
+            }
+
             // make sure we have a reference to either SELF:/ or SomeVar:/
             // so that the packaging process knows this is special
             var jsonStorablePath = path;
-            if(!jsonStorablePath.Contains(":/")) {
+            if (!jsonStorablePath.Contains(":/"))
+            {
                 jsonStorablePath = $"SELF:/{jsonStorablePath}";
             }
 
@@ -119,7 +144,7 @@ namespace LFE
             else
             {
                 SuperController.LogError($"not able to load {path} (this won't work on point light yet)");
-                CookieFilePath.val = String.Empty;
+                CookieFilePath.valNoCallback = String.Empty;
             }
         }
 
@@ -157,7 +182,16 @@ namespace LFE
             );
 
             SuperController.singleton.GetMediaPathDialog(
-                (p) => SetTexture(p),
+                (p) => {
+                    try
+                    {
+                        SetTexture(p);
+                    }
+                    catch (Exception e)
+                    {
+                        SuperController.LogError(e.ToString());
+                    }
+                },
                 filter: "png",
                 suggestedFolder: defaultPaths.FirstOrDefault(p => FileManagerSecure.DirectoryExists(p)),
                 shortCuts: shortcuts,

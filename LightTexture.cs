@@ -23,12 +23,15 @@ namespace LFE
             if (_light == null) { throw new Exception("This must be placed on an Atom with a light"); }
 
             CookieFilePath = new JSONStorableString("Light Texture", String.Empty, (path) => SetTexture(path));
+            RegisterString(CookieFilePath);
+
             CookieWrapMode = new JSONStorableStringChooser("Texture Wrap Mode", CookieWrapModes, CookieWrapModes.First(), "Texture Wrap Mode", (mode) => {
                 if (_light.cookie != null)
                 {
                     _light.cookie.wrapMode = ParseTextureWrapMode(mode);
                 }
             });
+            RegisterStringChooser(CookieWrapMode);
 
             var loadButton = CreateButton("Load Texture");
             loadButton.button.onClick.AddListener(() => {
@@ -56,9 +59,6 @@ namespace LFE
             instruction.val += "Tip: add your own PNG files in 'Custom/Atom/InvisibleLight/Textures' (even in your own VAR) for easy use";
             CreateTextField(instruction, rightSide: true).height = 1200;
 
-            // trigger the handler for the wrap mode and path in case it was saved in a scene
-            CookieWrapMode.val = CookieWrapMode.val;
-            CookieFilePath.val = CookieFilePath.val;
         }
 
         void OnDestroy()
@@ -70,11 +70,24 @@ namespace LFE
 
         void SetTexture(string path)
         {
+            path = FileManagerSecure.NormalizePath(path);
+            // strip off SELF:/ so that native file actions will work
+            if(path.Contains("SELF:/")) {
+                path = path.Replace("SELF:/", String.Empty);
+            }
+
             ClearCookie(_light);
 
             if (string.IsNullOrEmpty(path))
             {
                 return;
+            }
+
+            // make sure we have a reference to either SELF:/ or SomeVar:/
+            // so that the packaging process knows this is special
+            var jsonStorablePath = path;
+            if(!jsonStorablePath.Contains(":/")) {
+                jsonStorablePath = $"SELF:/{jsonStorablePath}";
             }
 
             byte[] file = FileManagerSecure.ReadAllBytes(path);
@@ -86,7 +99,7 @@ namespace LFE
                 case LightType.Directional:
                 case LightType.Spot:
                     cookie = new Texture2D(2, 2);
-                    ((Texture2D)cookie).LoadImage(file); // width/height is automatic with this
+                    ((Texture2D)cookie).LoadImage(file); // width/heidht is automatic with this
                     break;
                 case LightType.Point:
                     // ????
@@ -101,12 +114,12 @@ namespace LFE
                 _light.cookie = cookie;
                 _light.cookie.wrapMode = ParseTextureWrapMode(CookieWrapMode.val);
 
-                CookieFilePath.val = path;
+                CookieFilePath.valNoCallback = jsonStorablePath;
             }
             else
             {
                 SuperController.LogError($"not able to load {path} (this won't work on point light yet)");
-                CookieFilePath.val = "";
+                CookieFilePath.val = String.Empty;
             }
         }
 
@@ -147,7 +160,8 @@ namespace LFE
                 (p) => SetTexture(p),
                 filter: "png",
                 suggestedFolder: defaultPaths.FirstOrDefault(p => FileManagerSecure.DirectoryExists(p)),
-                shortCuts: shortcuts
+                shortCuts: shortcuts,
+                showInstallFolderInDirectoryList: true
             );
         }
 
@@ -165,7 +179,7 @@ namespace LFE
             string id = name.Substring(0, name.IndexOf('_'));
             string filename = manager.GetJSON()["plugins"][id].Value;
             string path = filename.Substring(0, filename.LastIndexOfAny(new char[] { '/', '\\' }) + 1);
-            return path;
+            return FileManagerSecure.NormalizePath(path);
         }
     }
 }

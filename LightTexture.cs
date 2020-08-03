@@ -15,13 +15,23 @@ namespace LFE
         public JSONStorableStringChooser CookieWrapMode;
 
         private Light _light;
-        private static List<string> CookieWrapModes = new List<string> { "Clamp", "Mirror", "MirrorOnce", "Repeat" };
+        private static List<string> _cookieWrapModes = new List<string> { "Clamp", "Mirror", "MirrorOnce", "Repeat" };
+        private UIDynamicTextField _cookieFilePathUI;
 
         public override void Init()
         {
             _light = containingAtom.GetComponentInChildren<Light>();
             if (_light == null) { throw new Exception("This must be placed on an Atom with a light"); }
 
+
+            // LOAD TEXTURE
+            var loadButton = CreateButton("Load Texture");
+            loadButton.button.onClick.AddListener(() => {
+                ShowTexturePicker();
+            });
+
+
+            // TEXTURE PATH
             CookieFilePath = new JSONStorableString("Light Texture", String.Empty, (path) => {
                 try
                 {
@@ -33,8 +43,12 @@ namespace LFE
                 }
             });
             RegisterString(CookieFilePath);
+            _cookieFilePathUI = CreateTextField(CookieFilePath);
+            _cookieFilePathUI.height = 100;
 
-            CookieWrapMode = new JSONStorableStringChooser("Texture Wrap Mode", CookieWrapModes, CookieWrapModes.First(), "Texture Wrap Mode", (mode) => {
+
+            // WRAP MODE
+            CookieWrapMode = new JSONStorableStringChooser("Texture Wrap Mode", _cookieWrapModes, _cookieWrapModes.First(), "Texture Wrap Mode", (mode) => {
                 try
                 {
                     if (_light.cookie != null)
@@ -48,21 +62,17 @@ namespace LFE
                 }
             });
             RegisterStringChooser(CookieWrapMode);
-
-            var loadButton = CreateButton("Load Texture");
-            loadButton.button.onClick.AddListener(() => {
-                ShowTexturePicker();
-            });
-
-
-            CreateTextField(CookieFilePath).height = 100;
             CreatePopup(CookieWrapMode);
 
+
+            // CLEAR TEXTURE
             var clearButton = CreateButton("Clear Texture");
             clearButton.button.onClick.AddListener(() => {
                 CookieFilePath.val = "";
             });
 
+
+            // INSTRUCTIONS
             var instruction = new JSONStorableString("instructions", String.Empty);
             instruction.val += "Here is where you can load light textures, formally called 'cookies'.\n\n";
             instruction.val += "There are a few included here as an example but you can make your own.\n\n";

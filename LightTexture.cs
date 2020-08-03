@@ -100,12 +100,22 @@ namespace LFE
                 return;
             }
 
+#if LFE_DEBUG
+            SuperController.LogMessage($"path = {path}");
+#endif
             path = FileManagerSecure.NormalizePath(path);
+#if LFE_DEBUG
+            SuperController.LogMessage($"path normalized = {path}");
+#endif
             // strip off SELF:/ so that native file actions will work
             if (path.Contains("SELF:/"))
             {
                 path = path.Replace("SELF:/", String.Empty);
             }
+
+#if LFE_DEBUG
+            SuperController.LogMessage($"path unselfed = {path}");
+#endif
 
             // make sure we have a reference to either SELF:/ or SomeVar:/
             // so that the packaging process knows this is special
@@ -116,6 +126,9 @@ namespace LFE
             }
 
             byte[] file = FileManagerSecure.ReadAllBytes(path);
+#if LFE_DEBUG
+            SuperController.LogMessage($"bytes = {file.Length}");
+#endif
             Texture cookie = null;
 
             switch (_light.type)
@@ -134,9 +147,19 @@ namespace LFE
                     break;
             }
 
+#if LFE_DEBUG
+            SuperController.LogMessage($"cookie = {cookie} width = {cookie.width} height = {cookie.height}");
+#endif
+
             if (cookie != null)
             {
+#if LFE_DEBUG
+            SuperController.LogMessage($"light.cookie before = {_light.cookie}");
+#endif
                 _light.cookie = cookie;
+#if LFE_DEBUG
+            SuperController.LogMessage($"light.cookie after = {_light.cookie}");
+#endif
                 if(_light.cookie == null) {
                     SuperController.LogError($"{path} is not a valid cookie");
                     SuperController.LogError("Make sure it is a square image");

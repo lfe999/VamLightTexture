@@ -137,6 +137,13 @@ namespace LFE
             if (cookie != null)
             {
                 _light.cookie = cookie;
+                if(_light.cookie == null) {
+                    SuperController.LogError($"{path} is not a valid cookie");
+                    SuperController.LogError("Make sure it is a square image");
+                    CookieFilePath.valNoCallback = String.Empty;
+                    return;
+                }
+
                 _light.cookie.wrapMode = ParseTextureWrapMode(CookieWrapMode.val);
 
                 CookieFilePath.valNoCallback = jsonStorablePath;

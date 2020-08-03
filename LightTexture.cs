@@ -1,4 +1,4 @@
-#define LFE_DEBUG
+// #define LFE_DEBUG
 
 using MVR.FileManagementSecure;
 using System;
@@ -13,6 +13,8 @@ namespace LFE
 
         public JSONStorableString CookieFilePath;
         public JSONStorableStringChooser CookieWrapMode;
+        public JSONStorableBool GrayscaleToAlpha;
+        public JSONStorableFloat Scale;
 
         private Light _light;
         private static List<string> _cookieWrapModes = new List<string> { "Clamp", "Mirror", "MirrorOnce", "Repeat" };
@@ -29,6 +31,36 @@ namespace LFE
             loadButton.button.onClick.AddListener(() => {
                 ShowTexturePicker();
             });
+
+
+            // GRAYSCALE TO ALPHA
+            GrayscaleToAlpha = new JSONStorableBool("Grayscale To Alpha", false, (bool opt) => {
+                try
+                {
+                    SetTexture(CookieFilePath.val);
+                }
+                catch (Exception e)
+                {
+                    SuperController.LogError(e.ToString());
+                }
+            });
+            RegisterBool(GrayscaleToAlpha);
+            CreateToggle(GrayscaleToAlpha);
+
+
+            // SCALE
+            Scale = new JSONStorableFloat("Directional Scale", 1.0f, (float scale) => {
+                try
+                {
+                    _light.cookieSize = Scale.val;
+                }
+                catch (Exception e)
+                {
+                    SuperController.LogError(e.ToString());
+                }
+            }, 0.01f, 5.0f);
+            RegisterFloat(Scale);
+            CreateSlider(Scale);
 
 
             // TEXTURE PATH
@@ -148,6 +180,11 @@ namespace LFE
                 case LightType.Spot:
                     cookie = new Texture2D(2, 2);
                     ((Texture2D)cookie).LoadImage(file); // width/heidht is automatic with this
+                    if(GrayscaleToAlpha.val) {
+                        Texture2D modified = ((Texture2D)cookie).WithGrayscaleAsAlpha();
+                        Destroy(cookie);
+                        cookie = modified;
+                    }
                     break;
                 case LightType.Point:
                     // ????
@@ -178,6 +215,8 @@ namespace LFE
                 }
 
                 _light.cookie.wrapMode = ParseTextureWrapMode(CookieWrapMode.val);
+                _light.cookie.filterMode = FilterMode.Trilinear;
+                _light.cookieSize = Scale.val;
 
                 CookieFilePath.valNoCallback = jsonStorablePath;
             }
@@ -254,6 +293,24 @@ namespace LFE
             string filename = manager.GetJSON()["plugins"][id].Value;
             string path = filename.Substring(0, filename.LastIndexOfAny(new char[] { '/', '\\' }) + 1);
             return FileManagerSecure.NormalizePath(path);
+        }
+    }
+
+    public static class Texture2DExtensions {
+        public static Texture2D WithGrayscaleAsAlpha(this Texture2D rgba) {
+            var grayscale = new Texture2D(rgba.width, rgba.height);
+            Graphics.CopyTexture(rgba, grayscale);
+
+            for(int y = 0; y < grayscale.height; y++) {
+                for(int x = 0; x < grayscale.width; x++) {
+                    var pixel = grayscale.GetPixel(x, y);
+                    var l = ((0.2126f * pixel.r) + (0.7152f * pixel.g) + (0.0722f * pixel.b));
+                    grayscale.SetPixel(x, y, new Color(l, l, l, l));
+                }
+            }
+            grayscale.Apply();
+
+            return grayscale;
         }
     }
 }

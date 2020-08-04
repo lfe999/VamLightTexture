@@ -10,7 +10,8 @@
    "programVersion" : "1.19.2.2", 
    "contentList" : [ 
       "Custom/Scripts/LFE/LightTexture/LightTexture.cs",
-      "Custom/Atom/InvisibleLight/Textures"
+      "Custom/Atom/InvisibleLight/Textures",
+      "Custom/Atom/InvisibleLight/Overlays"
    ], 
    "dependencies" : { 
    }

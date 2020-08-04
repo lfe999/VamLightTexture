@@ -18,6 +18,7 @@ namespace LFE
         public JSONStorableBool AddVignette;
         public JSONStorableFloat Scale;
         public JSONStorableFloat Brightness;
+        public JSONStorableBool Invert;
 
         private Light _light;
         private static List<string> _cookieWrapModes = new List<string> { "Clamp", "Mirror", "MirrorOnce", "Repeat" };
@@ -79,6 +80,21 @@ namespace LFE
             });
             RegisterBool(AddVignette);
             CreateToggle(AddVignette);
+
+
+            // INVERT
+            Invert = new JSONStorableBool("Invert", false, (bool opt) => {
+                try
+                {
+                    SetTexture(CookieFilePath.val);
+                }
+                catch (Exception e)
+                {
+                    SuperController.LogError(e.ToString());
+                }
+            });
+            RegisterBool(Invert);
+            CreateToggle(Invert);
 
 
             // BRIGHTNESS
@@ -231,6 +247,12 @@ namespace LFE
                     if (GrayscaleToAlpha.val)
                     {
                         Texture2D modified = ((Texture2D)cookie).WithGrayscaleAsAlpha();
+                        Destroy(cookie);
+                        cookie = modified;
+                    }
+                    if (Invert.val)
+                    {
+                        Texture2D modified = ((Texture2D)cookie).WithInvert();
                         Destroy(cookie);
                         cookie = modified;
                     }
@@ -469,14 +491,8 @@ namespace LFE
                 for (int x = 0; x < rgba.width; x++)
                 {
                     var pixel = rgba.GetPixel(x, y);
-                    var newBrightness = Mathf.Lerp(min, max, pixel.a);
-                    var newPixel = new Color(pixel.r, pixel.g, pixel.b, newBrightness);
-#if LFE_DEBUG
-                    if(y % 100 == 0 && x % 100 == 0) {
-                        SuperController.LogMessage($"color {pixel} -> {newPixel}");
-                    }
-#endif
-                    temp.SetPixel(x, y, newPixel);
+                    pixel.a = Mathf.Lerp(min, max, pixel.a);
+                    temp.SetPixel(x, y, pixel);
                 }
             }
             temp.Apply();
@@ -484,9 +500,23 @@ namespace LFE
             return temp;
         }
 
+        public static Texture2D WithInvert(this Texture2D rgba)
+        {
+            var temp = new Texture2D(rgba.width, rgba.height, rgba.format, true, false);
 
+            for (int y = 0; y < rgba.height; y++)
+            {
+                for (int x = 0; x < rgba.width; x++)
+                {
+                    var pixel = rgba.GetPixel(x, y);
+                    pixel.a = 1 - pixel.a;
+                    temp.SetPixel(x, y, pixel);
+                }
+            }
+            temp.Apply();
 
-
+            return temp;
+        }
 
         private static Color ColorLerpUnclamped(Color c1, Color c2, float value)
         {

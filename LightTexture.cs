@@ -14,6 +14,8 @@ namespace LFE
         public JSONStorableString CookieFilePath;
         public JSONStorableStringChooser CookieWrapMode;
         public JSONStorableBool GrayscaleToAlpha;
+        public JSONStorableBool AddBlackBorder;
+        public JSONStorableBool AddVignette;
         public JSONStorableFloat Scale;
 
         private Light _light;
@@ -46,6 +48,36 @@ namespace LFE
             });
             RegisterBool(GrayscaleToAlpha);
             CreateToggle(GrayscaleToAlpha);
+
+
+            // ADD BORDER
+            AddBlackBorder = new JSONStorableBool("Add Black Border", false, (bool opt) => {
+                try
+                {
+                    SetTexture(CookieFilePath.val);
+                }
+                catch (Exception e)
+                {
+                    SuperController.LogError(e.ToString());
+                }
+            });
+            RegisterBool(AddBlackBorder);
+            CreateToggle(AddBlackBorder);
+
+
+            // ADD VIGNETTE
+            AddVignette = new JSONStorableBool("Add Vignette", false, (bool opt) => {
+                try
+                {
+                    SetTexture(CookieFilePath.val);
+                }
+                catch (Exception e)
+                {
+                    SuperController.LogError(e.ToString());
+                }
+            });
+            RegisterBool(AddVignette);
+            CreateToggle(AddVignette);
 
 
             // SCALE
@@ -178,11 +210,23 @@ namespace LFE
                 case LightType.Area:
                 case LightType.Directional:
                 case LightType.Spot:
-                    cookie = new Texture2D(2, 2, TextureFormat.RGBA32, true, false);
+                    cookie = new Texture2D(2, 2, TextureFormat.ARGB32, true, false);
                     ((Texture2D)cookie).LoadImage(file); // width/heidht is automatic with this
                     if (GrayscaleToAlpha.val)
                     {
                         Texture2D modified = ((Texture2D)cookie).WithGrayscaleAsAlpha();
+                        Destroy(cookie);
+                        cookie = modified;
+                    }
+                    if (AddBlackBorder.val)
+                    {
+                        Texture2D modified = ((Texture2D)cookie).WithOverlay($"{GetPluginPath()}Overlays/black-border.png");
+                        Destroy(cookie);
+                        cookie = modified;
+                    }
+                    if (AddVignette.val)
+                    {
+                        Texture2D modified = ((Texture2D)cookie).WithOverlay($"{GetPluginPath()}Overlays/vignette-large-soft.png");
                         Destroy(cookie);
                         cookie = modified;
                     }
@@ -301,6 +345,70 @@ namespace LFE
     public static class Texture2DExtensions
     {
 
+        public static Texture2D WithBilinearScale(this Texture2D texture, int newWidth, int newHeight)
+        {
+
+            var newTexture = new Texture2D(newWidth, newHeight, texture.format, true, false);
+
+            Color[] texColors = texture.GetPixels();
+            Color[] newColors = new Color[newWidth * newHeight];
+
+            var ratioX = 1.0f / ((float)newWidth / (texture.width - 1));
+            var ratioY = 1.0f / ((float)newHeight / (texture.height - 1));
+            for (int y = 0; y < newHeight; y++)
+            {
+                int yFloor = (int)Mathf.Floor(y * ratioY);
+                var y1 = yFloor * texture.width;
+                var y2 = (yFloor + 1) * texture.width;
+                var yw = y * newWidth;
+                for (int x = 0; x < newWidth; x++)
+                {
+                    int xFloor = (int)Mathf.Floor(x * ratioX);
+                    var xLerp = x * ratioX - xFloor;
+                    newColors[yw + x] = ColorLerpUnclamped(ColorLerpUnclamped(texColors[y1 + xFloor], texColors[y1 + xFloor + 1], xLerp),
+                                                       ColorLerpUnclamped(texColors[y2 + xFloor], texColors[y2 + xFloor + 1], xLerp),
+                                                       y * ratioY - yFloor);
+                }
+            }
+
+            newTexture.SetPixels(newColors);
+            newTexture.Apply();
+            return newTexture;
+        }
+
+        public static Texture2D WithOverlay(this Texture2D rgba, string path)
+        {
+            path = FileManagerSecure.NormalizePath(path);
+            byte[] file = FileManagerSecure.ReadAllBytes(path);
+
+
+            var overlay = new Texture2D(2, 2, TextureFormat.ARGB32, true, false);
+            overlay.LoadImage(file);
+
+            if (overlay.width != rgba.width || overlay.height != overlay.height)
+            {
+                var resized = overlay.WithBilinearScale(rgba.width, rgba.height);
+                UnityEngine.Object.Destroy(overlay);
+                overlay = resized;
+            }
+
+            for (int y = 0; y < rgba.height; y++)
+            {
+                for (int x = 0; x < rgba.width; x++)
+                {
+                    var sourcePixel = rgba.GetPixel(x, y);
+                    var overlayPixel = overlay.GetPixel(x, y);
+
+                    sourcePixel.a = sourcePixel.a * overlayPixel.a;
+
+                    overlay.SetPixel(x, y, sourcePixel);
+                }
+            }
+            overlay.Apply();
+
+            return overlay;
+        }
+
         public static Texture2D WithGrayscaleAsAlpha(this Texture2D rgba)
         {
             var grayscale = new Texture2D(rgba.width, rgba.height, rgba.format, true, false);
@@ -317,6 +425,14 @@ namespace LFE
             grayscale.Apply();
 
             return grayscale;
+        }
+
+        private static Color ColorLerpUnclamped(Color c1, Color c2, float value)
+        {
+            return new Color(c1.r + (c2.r - c1.r) * value,
+                            c1.g + (c2.g - c1.g) * value,
+                            c1.b + (c2.b - c1.b) * value,
+                            c1.a + (c2.a - c1.a) * value);
         }
 
     }

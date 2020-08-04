@@ -178,9 +178,10 @@ namespace LFE
                 case LightType.Area:
                 case LightType.Directional:
                 case LightType.Spot:
-                    cookie = new Texture2D(2, 2);
+                    cookie = new Texture2D(2, 2, TextureFormat.RGBA32, true, false);
                     ((Texture2D)cookie).LoadImage(file); // width/heidht is automatic with this
-                    if(GrayscaleToAlpha.val) {
+                    if (GrayscaleToAlpha.val)
+                    {
                         Texture2D modified = ((Texture2D)cookie).WithGrayscaleAsAlpha();
                         Destroy(cookie);
                         cookie = modified;
@@ -207,7 +208,8 @@ namespace LFE
 #if LFE_DEBUG
             SuperController.LogMessage($"light.cookie after = {_light.cookie}");
 #endif
-                if(_light.cookie == null) {
+                if (_light.cookie == null)
+                {
                     SuperController.LogError($"{path} is not a valid cookie");
                     SuperController.LogError("Make sure it is a square image");
                     CookieFilePath.valNoCallback = String.Empty;
@@ -296,21 +298,26 @@ namespace LFE
         }
     }
 
-    public static class Texture2DExtensions {
-        public static Texture2D WithGrayscaleAsAlpha(this Texture2D rgba) {
-            var grayscale = new Texture2D(rgba.width, rgba.height);
-            Graphics.CopyTexture(rgba, grayscale);
+    public static class Texture2DExtensions
+    {
 
-            for(int y = 0; y < grayscale.height; y++) {
-                for(int x = 0; x < grayscale.width; x++) {
-                    var pixel = grayscale.GetPixel(x, y);
+        public static Texture2D WithGrayscaleAsAlpha(this Texture2D rgba)
+        {
+            var grayscale = new Texture2D(rgba.width, rgba.height, rgba.format, true, false);
+
+            for (int y = 0; y < rgba.height; y++)
+            {
+                for (int x = 0; x < rgba.width; x++)
+                {
+                    var pixel = rgba.GetPixel(x, y);
                     var l = ((0.2126f * pixel.r) + (0.7152f * pixel.g) + (0.0722f * pixel.b));
-                    grayscale.SetPixel(x, y, new Color(l, l, l, l));
+                    grayscale.SetPixel(x, y, new Color(pixel.r, pixel.g, pixel.b, l));
                 }
             }
             grayscale.Apply();
 
             return grayscale;
         }
+
     }
 }

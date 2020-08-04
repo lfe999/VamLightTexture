@@ -17,6 +17,7 @@ namespace LFE
         public JSONStorableBool AddBlackBorder;
         public JSONStorableBool AddVignette;
         public JSONStorableFloat Scale;
+        public JSONStorableFloat Brightness;
 
         private Light _light;
         private static List<string> _cookieWrapModes = new List<string> { "Clamp", "Mirror", "MirrorOnce", "Repeat" };
@@ -78,6 +79,21 @@ namespace LFE
             });
             RegisterBool(AddVignette);
             CreateToggle(AddVignette);
+
+
+            // BRIGHTNESS
+            Brightness = new JSONStorableFloat("Brightness", 0.0f, (float scale) => {
+                try
+                {
+                    SetTexture(CookieFilePath.val);
+                }
+                catch (Exception e)
+                {
+                    SuperController.LogError(e.ToString());
+                }
+            }, -1.0f, 1.0f);
+            RegisterFloat(Brightness);
+            CreateSlider(Brightness);
 
 
             // SCALE
@@ -215,6 +231,12 @@ namespace LFE
                     if (GrayscaleToAlpha.val)
                     {
                         Texture2D modified = ((Texture2D)cookie).WithGrayscaleAsAlpha();
+                        Destroy(cookie);
+                        cookie = modified;
+                    }
+                    if (Brightness.val != 0)
+                    {
+                        Texture2D modified = ((Texture2D)cookie).WithBrightness(Brightness.val);
                         Destroy(cookie);
                         cookie = modified;
                     }
@@ -426,6 +448,45 @@ namespace LFE
 
             return grayscale;
         }
+
+        public static Texture2D WithBrightness(this Texture2D rgba, float brightness)
+        {
+            if(brightness == 0) {
+                return rgba;
+            }
+
+            var temp = new Texture2D(rgba.width, rgba.height, rgba.format, true, false);
+
+            var min = brightness > 0 ? 0.0f + brightness : 0f;
+            var max = brightness < 0 ? 1.0f + brightness : 1f;
+
+#if LFE_DEBUG
+            SuperController.LogMessage($"min = {min} max = {max}");
+#endif
+
+            for (int y = 0; y < rgba.height; y++)
+            {
+                for (int x = 0; x < rgba.width; x++)
+                {
+                    var pixel = rgba.GetPixel(x, y);
+                    var newBrightness = Mathf.Lerp(min, max, pixel.a);
+                    var newPixel = new Color(pixel.r, pixel.g, pixel.b, newBrightness);
+#if LFE_DEBUG
+                    if(y % 100 == 0 && x % 100 == 0) {
+                        SuperController.LogMessage($"color {pixel} -> {newPixel}");
+                    }
+#endif
+                    temp.SetPixel(x, y, newPixel);
+                }
+            }
+            temp.Apply();
+
+            return temp;
+        }
+
+
+
+
 
         private static Color ColorLerpUnclamped(Color c1, Color c2, float value)
         {

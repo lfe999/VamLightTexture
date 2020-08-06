@@ -199,6 +199,9 @@ namespace LFE
 
         void SetTexture(string path)
         {
+            DateTime benchmarkStart;
+            DateTime benchmarkEnd;
+
             ClearCookie(_light);
 
             if (string.IsNullOrEmpty(path))
@@ -242,37 +245,79 @@ namespace LFE
                 case LightType.Area:
                 case LightType.Directional:
                 case LightType.Spot:
+#if LFE_DEBUG
+                    benchmarkStart = DateTime.Now;
+#endif
                     cookie = new Texture2D(2, 2, TextureFormat.ARGB32, true, false);
                     ((Texture2D)cookie).LoadImage(file); // width/heidht is automatic with this
+#if LFE_DEBUG
+                    benchmarkEnd = DateTime.Now;
+                    SuperController.LogMessage($"file load took: {benchmarkEnd - benchmarkStart}");
+#endif
                     if (GrayscaleToAlpha.val)
                     {
+#if LFE_DEBUG
+                        benchmarkStart = DateTime.Now;
+#endif
                         Texture2D modified = ((Texture2D)cookie).WithGrayscaleAsAlpha();
                         Destroy(cookie);
                         cookie = modified;
+#if LFE_DEBUG
+                        benchmarkEnd = DateTime.Now;
+                        SuperController.LogMessage($"greyscale to alpha took: {benchmarkEnd - benchmarkStart}");
+#endif
                     }
                     if (Invert.val)
                     {
+#if LFE_DEBUG
+                        benchmarkStart = DateTime.Now;
+#endif
                         Texture2D modified = ((Texture2D)cookie).WithInvert();
                         Destroy(cookie);
                         cookie = modified;
+#if LFE_DEBUG
+                        benchmarkEnd = DateTime.Now;
+                        SuperController.LogMessage($"invert took: {benchmarkEnd - benchmarkStart}");
+#endif
                     }
                     if (Brightness.val != 0)
                     {
+#if LFE_DEBUG
+                        benchmarkStart = DateTime.Now;
+#endif
                         Texture2D modified = ((Texture2D)cookie).WithBrightness(Brightness.val);
                         Destroy(cookie);
                         cookie = modified;
+#if LFE_DEBUG
+                        benchmarkEnd = DateTime.Now;
+                        SuperController.LogMessage($"brightness took: {benchmarkEnd - benchmarkStart}");
+#endif
                     }
                     if (AddBlackBorder.val)
                     {
+#if LFE_DEBUG
+                        benchmarkStart = DateTime.Now;
+#endif
                         Texture2D modified = ((Texture2D)cookie).WithOverlay($"{GetPluginPath()}Overlays/black-border.png");
                         Destroy(cookie);
                         cookie = modified;
+#if LFE_DEBUG
+                        benchmarkEnd = DateTime.Now;
+                        SuperController.LogMessage($"border took: {benchmarkEnd - benchmarkStart}");
+#endif
                     }
                     if (AddVignette.val)
                     {
+#if LFE_DEBUG
+                        benchmarkStart = DateTime.Now;
+#endif
                         Texture2D modified = ((Texture2D)cookie).WithOverlay($"{GetPluginPath()}Overlays/vignette-large-soft.png");
                         Destroy(cookie);
                         cookie = modified;
+#if LFE_DEBUG
+                        benchmarkEnd = DateTime.Now;
+                        SuperController.LogMessage($"vignette took: {benchmarkEnd - benchmarkStart}");
+#endif
                     }
                     break;
                 case LightType.Point:

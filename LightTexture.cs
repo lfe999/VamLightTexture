@@ -174,9 +174,9 @@ namespace LFE
             instruction.val += "There are a few included here as an example but you can make your own.\n\n";
             instruction.val += "The only thing Unity will care about is the alpha channel. Color channel will be thrown away.\n\n";
             instruction.val += "1) make a square image in your paint program.\n";
-            instruction.val += "2) paint in greyscale, while will be bright, black will be dark.\n";
-            instruction.val += "3) save it as a square PNG (powers of two are ideal for performance).\n\n";
-            instruction.val += "Tip: add your own PNG files in 'Custom/Atom/InvisibleLight/Textures' (even in your own VAR) for easy use";
+            instruction.val += "2) save it as a square PNG, JPG, or GIF (powers of two are ideal for performance).\n";
+            instruction.val += "3) if it is in color, it will be turned into grayscale/alpha if you click the checkbox to the left.\n\n";
+            instruction.val += "Tip: add your own square image files in 'Custom/Atom/InvisibleLight/Textures' (even in your own VAR) for easy use";
             CreateTextField(instruction, rightSide: true).height = 1200;
 
         }
@@ -248,6 +248,9 @@ namespace LFE
 #endif
                     cookie = new Texture2D(2, 2, TextureFormat.ARGB32, true, false);
                     ((Texture2D)cookie).LoadImage(file); // width/heidht is automatic with this
+
+                    cookie = ((Texture2D)cookie).EnsureAlphaChannel();
+
 #if LFE_DEBUG
                     benchmarkEnd = DateTime.Now;
                     SuperController.LogMessage($"file load took: {benchmarkEnd - benchmarkStart}");
@@ -317,7 +320,8 @@ namespace LFE
             }
 
 #if LFE_DEBUG
-            SuperController.LogMessage($"cookie = {cookie} width = {cookie.width} height = {cookie.height}");
+            var f = ((Texture2D)cookie).format;
+            SuperController.LogMessage($"cookie = {cookie} format = {f} width = {cookie.width} height = {cookie.height}");
 #endif
 
             if (cookie != null)
@@ -394,7 +398,7 @@ namespace LFE
                         SuperController.LogError(e.ToString());
                     }
                 },
-                filter: "png",
+                filter: "png|jpg|gif",
                 suggestedFolder: defaultPaths.FirstOrDefault(p => FileManagerSecure.DirectoryExists(p)),
                 shortCuts: shortcuts,
                 showInstallFolderInDirectoryList: true
@@ -421,6 +425,22 @@ namespace LFE
 
     public static class Texture2DExtensions
     {
+
+        public static Texture2D EnsureAlphaChannel(this Texture2D source) {
+            if(source.format == TextureFormat.ARGB32) {
+                return source;
+            }
+            else {
+                var pngBytes = source.EncodeToPNG();
+                var png = new Texture2D(source.width, source.height, TextureFormat.ARGB32, true, false);
+                png.LoadImage(pngBytes);
+                UnityEngine.Object.Destroy(source);
+#if LFE_DEBUG
+                SuperController.LogMessage($"converted {source.format} to {png.format}");
+#endif
+                return png;
+            }
+        }
 
         public static Texture2D WithBilinearScale(this Texture2D texture, int newWidth, int newHeight)
         {

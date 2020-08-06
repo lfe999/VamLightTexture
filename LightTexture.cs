@@ -259,9 +259,7 @@ namespace LFE
 #if LFE_DEBUG
                         benchmarkStart = DateTime.Now;
 #endif
-                        Texture2D modified = ((Texture2D)cookie).WithGrayscaleAsAlpha();
-                        Destroy(cookie);
-                        cookie = modified;
+                        ((Texture2D)cookie).ApplyGrayscaleAsAlpha();
 #if LFE_DEBUG
                         benchmarkEnd = DateTime.Now;
                         SuperController.LogMessage($"greyscale to alpha took: {benchmarkEnd - benchmarkStart}");
@@ -272,9 +270,7 @@ namespace LFE
 #if LFE_DEBUG
                         benchmarkStart = DateTime.Now;
 #endif
-                        Texture2D modified = ((Texture2D)cookie).WithInvert();
-                        Destroy(cookie);
-                        cookie = modified;
+                        ((Texture2D)cookie).ApplyInvert();
 #if LFE_DEBUG
                         benchmarkEnd = DateTime.Now;
                         SuperController.LogMessage($"invert took: {benchmarkEnd - benchmarkStart}");
@@ -285,9 +281,7 @@ namespace LFE
 #if LFE_DEBUG
                         benchmarkStart = DateTime.Now;
 #endif
-                        Texture2D modified = ((Texture2D)cookie).WithBrightness(Brightness.val);
-                        Destroy(cookie);
-                        cookie = modified;
+                        ((Texture2D)cookie).ApplyBrightness(Brightness.val);
 #if LFE_DEBUG
                         benchmarkEnd = DateTime.Now;
                         SuperController.LogMessage($"brightness took: {benchmarkEnd - benchmarkStart}");
@@ -298,9 +292,7 @@ namespace LFE
 #if LFE_DEBUG
                         benchmarkStart = DateTime.Now;
 #endif
-                        Texture2D modified = ((Texture2D)cookie).WithOverlay($"{GetPluginPath()}Overlays/black-border.png");
-                        Destroy(cookie);
-                        cookie = modified;
+                        ((Texture2D)cookie).ApplyOverlay($"{GetPluginPath()}Overlays/black-border.png");
 #if LFE_DEBUG
                         benchmarkEnd = DateTime.Now;
                         SuperController.LogMessage($"border took: {benchmarkEnd - benchmarkStart}");
@@ -311,9 +303,7 @@ namespace LFE
 #if LFE_DEBUG
                         benchmarkStart = DateTime.Now;
 #endif
-                        Texture2D modified = ((Texture2D)cookie).WithOverlay($"{GetPluginPath()}Overlays/vignette-large-soft.png");
-                        Destroy(cookie);
-                        cookie = modified;
+                        ((Texture2D)cookie).ApplyOverlay($"{GetPluginPath()}Overlays/vignette-large-soft.png");
 #if LFE_DEBUG
                         benchmarkEnd = DateTime.Now;
                         SuperController.LogMessage($"vignette took: {benchmarkEnd - benchmarkStart}");
@@ -465,7 +455,7 @@ namespace LFE
             return newTexture;
         }
 
-        public static Texture2D WithOverlay(this Texture2D rgba, string path)
+        public static void ApplyOverlay(this Texture2D rgba, string path)
         {
             path = FileManagerSecure.NormalizePath(path);
             byte[] file = FileManagerSecure.ReadAllBytes(path);
@@ -481,48 +471,33 @@ namespace LFE
                 overlay = resized;
             }
 
-            for (int y = 0; y < rgba.height; y++)
-            {
-                for (int x = 0; x < rgba.width; x++)
-                {
-                    var sourcePixel = rgba.GetPixel(x, y);
-                    var overlayPixel = overlay.GetPixel(x, y);
+            var rgbaPixels = rgba.GetPixels();
+            var overlayPixels = overlay.GetPixels();
 
-                    sourcePixel.a = sourcePixel.a * overlayPixel.a;
-
-                    overlay.SetPixel(x, y, sourcePixel);
+            if(rgbaPixels.Length == overlayPixels.Length) {
+                for(var i = 0; i < rgbaPixels.Length; i++) {
+                    rgbaPixels[i].a = rgbaPixels[i].a * overlayPixels[i].a;
                 }
+                rgba.SetPixels(rgbaPixels);
+                rgba.Apply();
             }
-            overlay.Apply();
-
-            return overlay;
         }
 
-        public static Texture2D WithGrayscaleAsAlpha(this Texture2D rgba)
+        public static void ApplyGrayscaleAsAlpha(this Texture2D rgba)
         {
-            var grayscale = new Texture2D(rgba.width, rgba.height, rgba.format, true, false);
-
-            for (int y = 0; y < rgba.height; y++)
-            {
-                for (int x = 0; x < rgba.width; x++)
-                {
-                    var pixel = rgba.GetPixel(x, y);
-                    var l = ((0.2126f * pixel.r) + (0.7152f * pixel.g) + (0.0722f * pixel.b));
-                    grayscale.SetPixel(x, y, new Color(pixel.r, pixel.g, pixel.b, l));
-                }
+            var pixels = rgba.GetPixels();
+            for (int i = 0; i < pixels.Length; i++) {
+                pixels[i].a = pixels[i].grayscale;
             }
-            grayscale.Apply();
-
-            return grayscale;
+            rgba.SetPixels(pixels);
+            rgba.Apply();
         }
 
-        public static Texture2D WithBrightness(this Texture2D rgba, float brightness)
+        public static void ApplyBrightness(this Texture2D rgba, float brightness)
         {
             if(brightness == 0) {
-                return rgba;
+                return;
             }
-
-            var temp = new Texture2D(rgba.width, rgba.height, rgba.format, true, false);
 
             var min = brightness > 0 ? 0.0f + brightness : 0f;
             var max = brightness < 0 ? 1.0f + brightness : 1f;
@@ -530,37 +505,22 @@ namespace LFE
 #if LFE_DEBUG
             SuperController.LogMessage($"min = {min} max = {max}");
 #endif
-
-            for (int y = 0; y < rgba.height; y++)
-            {
-                for (int x = 0; x < rgba.width; x++)
-                {
-                    var pixel = rgba.GetPixel(x, y);
-                    pixel.a = Mathf.Lerp(min, max, pixel.a);
-                    temp.SetPixel(x, y, pixel);
-                }
+            var pixels = rgba.GetPixels();
+            for(int i = 0; i < pixels.Length; i++) {
+                pixels[i].a = Mathf.Lerp(min, max, pixels[i].a);
             }
-            temp.Apply();
-
-            return temp;
+            rgba.SetPixels(pixels);
+            rgba.Apply();
         }
 
-        public static Texture2D WithInvert(this Texture2D rgba)
+        public static void ApplyInvert(this Texture2D rgba)
         {
-            var temp = new Texture2D(rgba.width, rgba.height, rgba.format, true, false);
-
-            for (int y = 0; y < rgba.height; y++)
-            {
-                for (int x = 0; x < rgba.width; x++)
-                {
-                    var pixel = rgba.GetPixel(x, y);
-                    pixel.a = 1 - pixel.a;
-                    temp.SetPixel(x, y, pixel);
-                }
+            var pixels = rgba.GetPixels();
+            for(var i = 0; i < pixels.Length; i++) {
+                pixels[i].a = 1 - pixels[i].a;
             }
-            temp.Apply();
-
-            return temp;
+            rgba.SetPixels(pixels);
+            rgba.Apply();
         }
 
         private static Color ColorLerpUnclamped(Color c1, Color c2, float value)

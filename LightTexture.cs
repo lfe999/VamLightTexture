@@ -181,11 +181,21 @@ namespace LFE
 
         }
 
-        void OnDestroy()
-        {
+        // use on disable instead of ondestroy -- more predictable when merge loading and stuff
+        public void OnDisable() {
             try
             {
                 ClearCookie(_light);
+            }
+            catch (Exception e)
+            {
+                SuperController.LogError(e.ToString());
+            }
+        }
+
+        public void OnEnable() {
+            try {
+                SetTexture(CookieFilePath?.val);
             }
             catch (Exception e)
             {
@@ -197,8 +207,6 @@ namespace LFE
 
         void SetTexture(string path)
         {
-            DateTime benchmarkStart;
-            DateTime benchmarkEnd;
 
             ClearCookie(_light);
 
@@ -407,8 +415,7 @@ namespace LFE
 
         private void ClearCookie(Light light)
         {
-            if (light.cookie != null)
-            {
+            if(light?.cookie != null) {
                 Destroy(light.cookie);
                 light.cookie = null;
             }

@@ -251,75 +251,56 @@ namespace LFE
                 case LightType.Area:
                 case LightType.Directional:
                 case LightType.Spot:
-#if LFE_DEBUG
-                    benchmarkStart = DateTime.Now;
-#endif
                     cookie = new Texture2D(2, 2, TextureFormat.ARGB32, true, false);
                     ((Texture2D)cookie).LoadImage(file); // width/heidht is automatic with this
 
                     cookie = ((Texture2D)cookie).EnsureAlphaChannel();
 
-#if LFE_DEBUG
-                    benchmarkEnd = DateTime.Now;
-                    SuperController.LogMessage($"file load took: {benchmarkEnd - benchmarkStart}");
-#endif
                     if (GrayscaleToAlpha.val)
                     {
-#if LFE_DEBUG
-                        benchmarkStart = DateTime.Now;
-#endif
                         ((Texture2D)cookie).ApplyGrayscaleAsAlpha();
-#if LFE_DEBUG
-                        benchmarkEnd = DateTime.Now;
-                        SuperController.LogMessage($"greyscale to alpha took: {benchmarkEnd - benchmarkStart}");
-#endif
                     }
                     if (Invert.val)
                     {
-#if LFE_DEBUG
-                        benchmarkStart = DateTime.Now;
-#endif
                         ((Texture2D)cookie).ApplyInvert();
-#if LFE_DEBUG
-                        benchmarkEnd = DateTime.Now;
-                        SuperController.LogMessage($"invert took: {benchmarkEnd - benchmarkStart}");
-#endif
                     }
                     if (Brightness.val != 0)
                     {
-#if LFE_DEBUG
-                        benchmarkStart = DateTime.Now;
-#endif
                         ((Texture2D)cookie).ApplyBrightness(Brightness.val);
-#if LFE_DEBUG
-                        benchmarkEnd = DateTime.Now;
-                        SuperController.LogMessage($"brightness took: {benchmarkEnd - benchmarkStart}");
-#endif
                     }
                     if (AddBlackBorder.val)
                     {
-#if LFE_DEBUG
-                        benchmarkStart = DateTime.Now;
-#endif
                         ((Texture2D)cookie).ApplyOverlay($"{GetPluginPath()}Overlays/black-border.png");
-#if LFE_DEBUG
-                        benchmarkEnd = DateTime.Now;
-                        SuperController.LogMessage($"border took: {benchmarkEnd - benchmarkStart}");
-#endif
                     }
                     if (AddVignette.val)
                     {
-#if LFE_DEBUG
-                        benchmarkStart = DateTime.Now;
-#endif
                         ((Texture2D)cookie).ApplyOverlay($"{GetPluginPath()}Overlays/vignette-large-soft.png");
-#if LFE_DEBUG
-                        benchmarkEnd = DateTime.Now;
-                        SuperController.LogMessage($"vignette took: {benchmarkEnd - benchmarkStart}");
-#endif
                     }
                     break;
                 case LightType.Point:
+                    cookie = new Texture2D(2, 2, TextureFormat.ARGB32, true, false);
+                    ((Texture2D)cookie).LoadImage(file); // width/heidht is automatic with this
+
+                    cookie = ((Texture2D)cookie).EnsureAlphaChannel();
+
+                    if (GrayscaleToAlpha.val)
+                    {
+                        ((Texture2D)cookie).ApplyGrayscaleAsAlpha();
+                    }
+                    if (Invert.val)
+                    {
+                        ((Texture2D)cookie).ApplyInvert();
+                    }
+                    if (Brightness.val != 0)
+                    {
+                        ((Texture2D)cookie).ApplyBrightness(Brightness.val);
+                    }
+
+                    cookie = ((Texture2D)cookie).ToCubemap();
+#if LFE_DEBUG
+                    SuperController.LogMessage($"cubemap: {cookie}");
+#endif
+
                     // ????
                     // https://stackoverflow.com/questions/42746635/from-texture2d-to-cubemap
                     // https://gist.github.com/RemyUnity/856f85bfe3ec7a8d845406415b426f87
@@ -328,11 +309,17 @@ namespace LFE
             }
 
 #if LFE_DEBUG
-            var f = ((Texture2D)cookie).format;
-            SuperController.LogMessage($"cookie = {cookie} format = {f} width = {cookie.width} height = {cookie.height}");
+            if(cookie as Texture2D) {
+                var f = ((Texture2D)cookie)?.format;
+                SuperController.LogMessage($"cookie = {cookie} format = {f} width = {cookie?.width} height = {cookie?.height}");
+            }
+            if(cookie as Cubemap) {
+                var f = ((Cubemap)cookie)?.format;
+                SuperController.LogMessage($"cookie = {cookie} format = {f} width = {cookie?.width} height = {cookie?.height}");
+            }
 #endif
 
-            if (cookie != null)
+            if (cookie != null && _light != null)
             {
 #if LFE_DEBUG
             SuperController.LogMessage($"light.cookie before = {_light.cookie}");
@@ -344,7 +331,7 @@ namespace LFE
                 if (_light.cookie == null)
                 {
                     SuperController.LogError($"{path} is not a valid cookie");
-                    SuperController.LogError("Make sure it is a square image");
+                    SuperController.LogError("Make sure it is a square image for spotlight type lights");
                     CookieFilePath.valNoCallback = String.Empty;
                     return;
                 }
@@ -357,7 +344,7 @@ namespace LFE
             }
             else
             {
-                SuperController.LogError($"not able to load {path} (this won't work on point light yet)");
+                SuperController.LogError($"not able to load {path}");
                 CookieFilePath.valNoCallback = String.Empty;
             }
         }
@@ -548,12 +535,120 @@ namespace LFE
             rgba.Apply();
         }
 
+        public static Cubemap ToCubemap(this Texture2D rgba) {
+            if(rgba == null) {
+                return null;
+            }
+#if LFE_DEBUG
+            SuperController.LogMessage($"ToCubeMap({rgba.width} x {rgba.height})");
+#endif
+            var commonDivisor = GreatestCommonDivisor(rgba.width, rgba.height);
+            var ratioW = rgba.width / commonDivisor;
+            var ratioH = rgba.height / commonDivisor;
+
+            var ratio = $"{ratioW}:{ratioH}";
+#if LFE_DEBUG
+            SuperController.LogMessage($"ratio: {ratio}");
+#endif
+            Cubemap cubemap = null;
+            int squareSize = 0;
+
+            // see mappings here: https://docs.unity3d.com/Manual/class-Cubemap.html
+            switch(ratio) {
+                case "1:1": // if it is square just tile it
+                    squareSize = rgba.height;
+#if LFE_DEBUG
+                    SuperController.LogMessage($"squaresize: {squareSize}");
+#endif
+                    cubemap = new Cubemap(squareSize, TextureFormat.ARGB32, true);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.NegativeX);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveX);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.NegativeY);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveY);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.NegativeZ);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveZ);
+                    cubemap.Apply();
+                    break;
+                case "6:1":
+                    squareSize = rgba.height;
+#if LFE_DEBUG
+                    SuperController.LogMessage($"squaresize: {squareSize}");
+#endif
+                    cubemap = new Cubemap(squareSize, TextureFormat.ARGB32, true);
+                    cubemap.SetPixels(rgba.GetPixels(1 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.NegativeX);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveX);
+                    cubemap.SetPixels(rgba.GetPixels(3 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.NegativeY);
+                    cubemap.SetPixels(rgba.GetPixels(2 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveY);
+                    cubemap.SetPixels(rgba.GetPixels(5 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.NegativeZ);
+                    cubemap.SetPixels(rgba.GetPixels(4 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveZ);
+                    cubemap.Apply();
+                    break;
+                case "1:6":
+                    squareSize = rgba.width;
+#if LFE_DEBUG
+                    SuperController.LogMessage($"squaresize: {squareSize}");
+#endif
+                    cubemap = new Cubemap(squareSize, TextureFormat.ARGB32, true);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 1 * squareSize, squareSize, squareSize), CubemapFace.NegativeX);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveX);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 3 * squareSize, squareSize, squareSize), CubemapFace.NegativeY);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 2 * squareSize, squareSize, squareSize), CubemapFace.PositiveY);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 5 * squareSize, squareSize, squareSize), CubemapFace.NegativeZ);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 4 * squareSize, squareSize, squareSize), CubemapFace.PositiveZ);
+                    cubemap.Apply();
+                    break;
+                case "3:4":
+                    squareSize = rgba.height / 4;
+#if LFE_DEBUG
+                    SuperController.LogMessage($"squaresize: {squareSize}");
+#endif
+                    cubemap = new Cubemap(squareSize, TextureFormat.ARGB32, true);
+                    cubemap.SetPixels(rgba.GetPixels(1 * squareSize, 3 * squareSize, squareSize, squareSize), CubemapFace.NegativeX);
+                    cubemap.SetPixels(rgba.GetPixels(1 * squareSize, 1 * squareSize, squareSize, squareSize), CubemapFace.PositiveX);
+                    cubemap.SetPixels(rgba.GetPixels(1 * squareSize, 2 * squareSize, squareSize, squareSize), CubemapFace.NegativeY);
+                    cubemap.SetPixels(rgba.GetPixels(1 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveY);
+                    cubemap.SetPixels(rgba.GetPixels(2 * squareSize, 1 * squareSize, squareSize, squareSize), CubemapFace.NegativeZ);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 1 * squareSize, squareSize, squareSize), CubemapFace.PositiveZ);
+                    cubemap.Apply();
+                    break;
+                case "4:3":
+                    squareSize = rgba.width / 4;
+#if LFE_DEBUG
+                    SuperController.LogMessage($"squaresize: {squareSize}");
+#endif
+                    cubemap = new Cubemap(squareSize, TextureFormat.ARGB32, true);
+                    cubemap.SetPixels(rgba.GetPixels(0 * squareSize, 1 * squareSize, squareSize, squareSize), CubemapFace.NegativeX);
+                    cubemap.SetPixels(rgba.GetPixels(2 * squareSize, 1 * squareSize, squareSize, squareSize), CubemapFace.PositiveX);
+                    cubemap.SetPixels(rgba.GetPixels(1 * squareSize, 2 * squareSize, squareSize, squareSize), CubemapFace.NegativeY);
+                    cubemap.SetPixels(rgba.GetPixels(1 * squareSize, 0 * squareSize, squareSize, squareSize), CubemapFace.PositiveY);
+                    cubemap.SetPixels(rgba.GetPixels(3 * squareSize, 1 * squareSize, squareSize, squareSize), CubemapFace.NegativeZ);
+                    cubemap.SetPixels(rgba.GetPixels(1 * squareSize, 1 * squareSize, squareSize, squareSize), CubemapFace.PositiveZ);
+                    cubemap.Apply();
+                    break;
+                default:
+                    SuperController.LogError($"Aspect ratio {ratio} for cubemap texture is not supported.  Must be 1:1, 6:1, 1:6, 4:3,or 3:4");
+                    cubemap = null;
+                    break;
+            }
+
+            return cubemap;
+        }
+
         private static Color ColorLerpUnclamped(Color c1, Color c2, float value)
         {
             return new Color(c1.r + (c2.r - c1.r) * value,
                             c1.g + (c2.g - c1.g) * value,
                             c1.b + (c2.b - c1.b) * value,
                             c1.a + (c2.a - c1.a) * value);
+        }
+
+        private static int GreatestCommonDivisor(int w, int h) {
+            while(h != 0) {
+                int remainder = w % h;
+                w = h;
+                h = remainder;
+            }
+            return w;
         }
 
     }

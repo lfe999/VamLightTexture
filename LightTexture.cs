@@ -2,6 +2,7 @@
 
 using MVR.FileManagementSecure;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -26,14 +27,18 @@ namespace LFE
 
         public override void Init()
         {
-            _light = containingAtom.GetComponentInChildren<Light>();
+            _light = containingAtom.reParentObject.GetComponentInChildren<Light>();
             if (_light == null) { throw new Exception("This must be placed on an Atom with a light"); }
-
 
             // LOAD TEXTURE
             var loadButton = CreateButton("Load Texture");
             loadButton.button.onClick.AddListener(() => {
-                ShowTexturePicker();
+                try {
+                    ShowTexturePicker();
+                }
+                catch(Exception e) {
+                    SuperController.LogError(e.ToString());
+                }
             });
 
 
@@ -179,6 +184,7 @@ namespace LFE
             instruction.val += "Tip: add your own square image files in 'Custom/Atom/InvisibleLight/Textures' (even in your own VAR) for easy use";
             CreateTextField(instruction, rightSide: true).height = 1200;
 
+            StartCoroutine(WatchLightTypeChange());
         }
 
         // use on disable instead of ondestroy -- more predictable when merge loading and stuff
@@ -201,6 +207,25 @@ namespace LFE
             {
                 SuperController.LogError(e.ToString());
             }
+        }
+
+        public IEnumerator WatchLightTypeChange() {
+            LightType lastLightType = _light.type;
+            while(_light != null) {
+                if(_light.type != lastLightType) {
+                    try
+                    {
+                        SetTexture(CookieFilePath?.val);
+                    }
+                    catch (Exception e)
+                    {
+                        SuperController.LogError(e.ToString());
+                    }
+                }
+                lastLightType = _light.type;
+                yield return new WaitForSeconds(0.10f);
+            }
+            yield break;
         }
 
         // --------------------------------------------------------------------------------
